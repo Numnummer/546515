@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,14 +34,37 @@ namespace GameClient
         }
         public async Task ProcessClient(Socket socket)
         {
-            byte[] buffer = new byte[1024];
-            int bytesRead = await socket.ReceiveAsync(buffer);
-            if (IsQueryValid(buffer))
+            byte[] buffer = new byte[4096];
+            _ = await socket.ReceiveAsync(buffer);
+            var contentList = new List<byte>();
+            while (socket.Connected)
             {
-                if (buffer[CommandByteIndex]==CommandHi)
+                if (IsQueryValid(buffer))
                 {
-                    var content = Encoding.UTF8.GetString(GamePackageHelper.GetContent(buffer));
-                    await BroadcastMessageAsync(SpecialCommandNewPlayer, content);
+                    if (buffer[CommandByteIndex]==CommandHi)
+                    {
+                        var content = Encoding.UTF8.GetString(GamePackageHelper.GetContent(buffer));
+                        await BroadcastMessageAsync(SpecialCommandNewPlayer, content);
+                        continue;
+                    }
+                    if (buffer[CommandByteIndex]==CommandBye)
+                    {
+                        await socket.DisconnectAsync(false);
+                        _clients.Remove(socket);
+                        var content = Encoding.UTF8.GetString(GamePackageHelper.GetContent(buffer));
+                        await BroadcastMessageAsync(SpecialCommandPlayerLeaved, content);
+                        return;
+                    }
+                    if (buffer[CommandByteIndex]==CommandSay)
+                    {
+                        contentList.AddRange(GamePackageHelper.GetContent(buffer));
+                        if (IsQueryFull(buffer))
+                        {
+                            var content = Encoding.UTF8.GetString(GamePackageHelper.GetContent(contentList.ToArray()));
+                            await BroadcastMessageAsync(SpecialCommandNewScore, content);
+                            contentList.Clear();
+                        }
+                    }
                 }
             }
         }

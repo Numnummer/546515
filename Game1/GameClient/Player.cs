@@ -1,14 +1,36 @@
-﻿using System.Net.Sockets;
+﻿using System.Net;
+using System.Net.Sockets;
 
 namespace GameClient
 {
     public class Player
     {
-        private readonly Socket _socket;
-        private readonly Dictionary<Socket, string> _players = new();
-        public Player()
+        private readonly Server? _server;
+        private readonly Client _client;
+        public Player(Mode mode, string name)
         {
-
+            switch (mode)
+            {
+                case Mode.Server:
+                    _server=new Server(new IPAddress(new byte[] { 127, 0, 0, 1 }), 5007);
+                    _=_server.ListenAsync();
+                    _client=new Client(new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 5007), name);
+                    break;
+                case Mode.Client:
+                    _server=null;
+                    _client=new Client(new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 5007), name);
+                    break;
+            }
+            if (_client==null)
+            {
+                throw new ArgumentException("Invalid mode", nameof(mode));
+            }
+            _=_client.StartWorkAsync();
         }
+
+        public async Task SendScoreAsync(string score) =>
+            await _client.SendScoreAsync(score);
+        public async Task EndWorkAsync() =>
+            await _client.EndWorkAsync();
     }
 }
