@@ -12,7 +12,7 @@ namespace GameClient
             switch (mode)
             {
                 case Mode.Server:
-                    _server=new Server(new IPAddress(new byte[] { 127, 0, 0, 1 }), 5007);
+                    _server=new Server(new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 5007));
                     _=_server.ListenAsync();
                     _client=new Client(new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 5007), name);
                     break;
@@ -28,6 +28,12 @@ namespace GameClient
             _=_client.StartWorkAsync();
         }
 
+        public void BindOnNewPlayer(Action<string> action) =>
+            _client.OnNewPlayer+=action;
+        public void BindOnNewScore(Action<string, string> action) =>
+            _client.OnNewScore+=action;
+        public void BindOnPlayerLeaved(Action<string> action) =>
+            _client.OnPlayerLeaved+=action;
         public async Task SendScoreAsync(string score) =>
             await _client.SendScoreAsync(score);
         public async Task EndWorkAsync() =>

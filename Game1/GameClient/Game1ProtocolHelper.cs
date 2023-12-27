@@ -29,8 +29,10 @@ namespace GameClient
         public const byte SpecialCommandPlayerLeaved = 0x32;
         public const byte FullPack = 0x40;
         public const byte PartPack = 0x41;
+
+        public const int PackLength = 256;
         public static bool IsQueryValid(byte[] buffer) =>
-            buffer.SequenceEqual(BasePackageStart)
+            buffer[..BasePackageStart.Length].SequenceEqual(BasePackageStart)
                 && buffer[^1]==LastByte;
         public static bool IsQueryFull(byte[] buffer) =>
             buffer[FullnessIndex]==FullPack;

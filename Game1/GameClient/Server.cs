@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using static GameClient.Game1ProtocolHelper;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace GameClient
 {
@@ -15,36 +16,48 @@ namespace GameClient
     {
         private readonly Socket _socket;
         private readonly Dictionary<Socket, string> _clients = new();
+        private readonly Dictionary<string, string> _scores = new();
         private readonly Mutex _mutex;
-        public Server(IPAddress address, int port)
+        public Server(IPEndPoint endPoint)
         {
-            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            _socket.Bind(new IPEndPoint(address, port));
+            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _socket.Bind(endPoint);
             _mutex = new Mutex(false, "game_mutex1");
         }
         public async Task ListenAsync()
         {
-            _socket.Listen();
-            var connectionSocket = await _socket.AcceptAsync();
-            _clients.Add(connectionSocket, $"player{_clients.Count+1}");
-            _=Task.Run(async () =>
+            try
             {
-                await ProcessClient(connectionSocket);
-            });
+                _socket.Listen();
+            }
+            catch (Exception e) { await Console.Out.WriteLineAsync(e.Message); }
+
+            while (_socket.IsBound)
+            {
+                var connectionSocket = await _socket.AcceptAsync();
+                _=Task.Run(async () =>
+                {
+                    await ProcessClient(connectionSocket);
+                });
+            }
         }
         public async Task ProcessClient(Socket socket)
         {
-            byte[] buffer = new byte[4096];
-            _ = await socket.ReceiveAsync(buffer);
-            var contentList = new List<byte>();
             while (socket.Connected)
             {
+                byte[] buffer = new byte[PackLength];
+                _ = await socket.ReceiveAsync(buffer);
+                var contentList = new List<byte>();
+
                 if (IsQueryValid(buffer))
                 {
                     if (buffer[CommandByteIndex]==CommandHi)
                     {
+                        await SendAllClients(socket);
+                        await SendAllScores(socket);
                         var content = Encoding.UTF8.GetString(GamePackageHelper.GetContent(buffer));
                         await BroadcastMessageAsync(SpecialCommandNewPlayer, content);
+                        _clients.Add(socket, content);
                         continue;
                     }
                     if (buffer[CommandByteIndex]==CommandBye)
@@ -55,11 +68,20 @@ namespace GameClient
                         await BroadcastMessageAsync(SpecialCommandPlayerLeaved, content);
                         return;
                     }
-                    if (buffer[CommandByteIndex]==CommandSay)
+                    if (buffer[CommandByteIndex]==CommandSay
+                        && buffer[SpecialCommandByteIndex]==SpecialCommandNewScore)
                     {
-                        contentList.AddRange(GamePackageHelper.GetContent(buffer));
+                        contentList.AddRange(buffer);
                         if (IsQueryFull(buffer))
                         {
+                            if (!_scores.ContainsKey(_clients[socket]))
+                            {
+                                _scores.Add(_clients[socket], GamePackageHelper.GetNameAndContent(contentList.ToArray()).Item2);
+                            }
+                            else
+                            {
+                                _scores[_clients[socket]]=GamePackageHelper.GetNameAndContent(contentList.ToArray()).Item2;
+                            }
                             var content = Encoding.UTF8.GetString(GamePackageHelper.GetContent(contentList.ToArray()));
                             await BroadcastMessageAsync(SpecialCommandNewScore, content);
                             contentList.Clear();
@@ -69,9 +91,28 @@ namespace GameClient
             }
         }
 
+        private async Task SendAllScores(Socket socket)
+        {
+            foreach (var score in _scores)
+            {
+                var content = GamePackageHelper.MakeMessageWithName(CommandServer, SpecialCommandNewScore, score.Key, score.Value);
+                await socket.SendAsync(content);
+                //await Console.Out.WriteLineAsync(score.Key+" "+score.Value);
+            }
+        }
+
+        private async Task SendAllClients(Socket socket)
+        {
+            foreach (var client in _clients.Values)
+            {
+                var content = GamePackageHelper.MakeMessage(CommandServer, SpecialCommandNewPlayer, client);
+                await socket.SendAsync(content);
+            }
+        }
+
         private async Task BroadcastMessageAsync(byte specialCommand, string content)
         {
-            var message = GamePackageHelper.MakeMessage(specialCommand, content);
+            var message = GamePackageHelper.MakeMessage(CommandServer, specialCommand, content);
             foreach (var client in _clients.Keys)
             {
                 _mutex.WaitOne();
