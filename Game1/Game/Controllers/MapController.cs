@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -24,14 +25,16 @@ namespace Sapper.Controllers
         public static Image spriteSet;
 
         private static bool isFirstStep;
+        private static bool isFirstInit = false;
 
         private static Point firstCoord;
 
         public static Form form;
         private static Dictionary<string, int> playerScores = new Dictionary<string, int>();
-        private static readonly string _playerName;
-        private static readonly string _playerScore;
-        private static readonly Mode _mode;
+        private static string _playerName;
+        private static int _playerScore;
+        private static Mode _mode;
+        private static Player _player;
 
         private static void ConfigureMapSize(Form current)
         {
@@ -51,22 +54,27 @@ namespace Sapper.Controllers
             }
         }
 
+        public static void InitNetwork(IPAddress ip, Mode mode, string playerName)
+        {
+            _playerName=playerName;
+            _mode = mode;
+            _player=new Player(ip, mode, playerName);
+            _player.BindOnPlayerLeaved(RemovePlayer);
+            _player.BindOnNewPlayer(AddPlayer);
+            _player.BindOnNewScore(SetScore);
+        }
+
         public static void Init(Form current)
         {
             form = current;
+            _playerScore=0;
             currentPictureToSet = 0;
             isFirstStep = true;
-            spriteSet = new Bitmap(
-                Path.Combine(
-                    new DirectoryInfo(Directory.GetCurrentDirectory()).Parent.Parent.FullName.ToString(),
-                        "Sprites\\tiles.png")
-                );
+            spriteSet = new Bitmap("Sprites//tiles.png");
             ConfigureMapSize(current);
             InitMap();
             InitButtons(current);
             form.ClientSize=new System.Drawing.Size(600, 400);
-            AddPlayer("p1");
-            UpdatePlayerScores();
         }
 
         private static void InitButtons(Form current)
@@ -86,6 +94,38 @@ namespace Sapper.Controllers
             }
         }
 
+        private static Action<Control> RemoveControl = (Control control) =>
+        {
+            if (control != null && control.Parent != null)
+            {
+                control.Parent.Invoke(new Action(() =>
+                {
+                    control.Parent.Controls.Remove(control);
+                }));
+            }
+        };
+
+        private static Action<Form, Control> AddControl = (Form targetForm, Control control) =>
+        {
+            if (targetForm != null && control != null)
+            {
+                if (!targetForm.IsDisposed && !control.IsDisposed)
+                {
+                    if (targetForm.InvokeRequired)
+                    {
+                        targetForm.Invoke(new Action(() =>
+                        {
+                            targetForm.Controls.Add(control);
+                        }));
+                    }
+                    else
+                    {
+                        targetForm.Controls.Add(control);
+                    }
+                }
+            }
+        };
+
         private static void UpdatePlayerScores()
         {
             // Очищаем записи игроков на форме
@@ -93,7 +133,15 @@ namespace Sapper.Controllers
             {
                 if (control is Label)
                 {
-                    form.Controls.Remove(control);
+                    try
+                    {
+                        form.Invoke(RemoveControl, control);
+                    }
+                    catch (Exception ex)
+                    {
+
+                        throw;
+                    }
                 }
             }
 
@@ -104,10 +152,11 @@ namespace Sapper.Controllers
             foreach (var entry in playerScores)
             {
                 Label label = new Label();
+                //var cleanedKey = entry.Key.Replace("\0", string.Empty);
                 label.Text = entry.Key + " - " + entry.Value;
                 label.Location = new Point(xOffset, yOffset);
                 label.AutoSize = true;
-                form.Controls.Add(label);
+                form.Invoke(AddControl, form, label);
 
                 yOffset += label.Height + 5;
             }
@@ -115,7 +164,13 @@ namespace Sapper.Controllers
 
         public static void AddPlayer(string playerName)
         {
-            playerScores.Add(playerName, 0);
+            if (playerScores.ContainsKey(playerName))
+            {
+                UpdatePlayerScores();
+                return;
+            }
+            var cleanedKey = playerName.Replace("\0", string.Empty);
+            playerScores.Add(cleanedKey, 0);
             UpdatePlayerScores();
         }
 
@@ -125,20 +180,11 @@ namespace Sapper.Controllers
             UpdatePlayerScores();
         }
 
-        public static void IncreaseScore(string playerName)
+        public static void SetScore(string playerName, string score)
         {
             if (playerScores.ContainsKey(playerName))
             {
-                playerScores[playerName]++;
-                UpdatePlayerScores();
-            }
-        }
-
-        public static void DecreaseScore(string playerName)
-        {
-            if (playerScores.ContainsKey(playerName))
-            {
-                playerScores[playerName]--;
+                playerScores[playerName]=int.Parse(score);
                 UpdatePlayerScores();
             }
         }
@@ -199,11 +245,13 @@ namespace Sapper.Controllers
 
             if (map[iButton, jButton] == -1)
             {
+                _playerScore=0;
                 ShowAllBombs(iButton, jButton);
                 MessageBox.Show("Поражение!");
                 form.Controls.Clear();
                 Init(form);
             }
+            _=_player.SendScoreAsync(_playerScore.ToString());
         }
 
         private static void ShowAllBombs(int iBomb, int jBomb)
@@ -281,35 +329,45 @@ namespace Sapper.Controllers
             {
                 case 1:
                     buttons[i, j].Image = FindNeededImage(1, 0);
+                    _playerScore+=1;
                     break;
                 case 2:
                     buttons[i, j].Image = FindNeededImage(2, 0);
+                    _playerScore+=2;
                     break;
                 case 3:
                     buttons[i, j].Image = FindNeededImage(3, 0);
+                    _playerScore+=3;
                     break;
                 case 4:
                     buttons[i, j].Image = FindNeededImage(4, 0);
+                    _playerScore+=4;
                     break;
                 case 5:
                     buttons[i, j].Image = FindNeededImage(0, 1);
+                    _playerScore+=5;
                     break;
                 case 6:
                     buttons[i, j].Image = FindNeededImage(1, 1);
+                    _playerScore+=6;
                     break;
                 case 7:
                     buttons[i, j].Image = FindNeededImage(2, 1);
+                    _playerScore+=7;
                     break;
                 case 8:
                     buttons[i, j].Image = FindNeededImage(3, 1);
+                    _playerScore+=8;
                     break;
                 case -1:
                     buttons[i, j].Image = FindNeededImage(1, 2);
+                    _playerScore=0;
                     break;
                 case 0:
                     buttons[i, j].Image = FindNeededImage(0, 0);
                     break;
             }
+            //SetScore(_playerName, _playerScore.ToString());
         }
 
         private static void OpenCells(int i, int j)

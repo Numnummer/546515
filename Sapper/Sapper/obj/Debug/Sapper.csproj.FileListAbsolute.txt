@@ -8,3 +8,8 @@ C:\Users\Алина\Downloads\Sapper\Sapper\obj\Debug\Sapper.csproj.GenerateReso
 C:\Users\Алина\Downloads\Sapper\Sapper\obj\Debug\Sapper.csproj.CoreCompileInputs.cache
 C:\Users\Алина\Downloads\Sapper\Sapper\obj\Debug\Sapper.exe
 C:\Users\Алина\Downloads\Sapper\Sapper\obj\Debug\Sapper.pdb
+D:\Hw\3 семстр\Семестровки\network-app-v2-Numnummer\Sapper\Sapper\obj\Debug\Sapper.csproj.AssemblyReference.cache
+D:\Hw\3 семстр\Семестровки\network-app-v2-Numnummer\Sapper\Sapper\obj\Debug\Sapper.Form1.resources
+D:\Hw\3 семстр\Семестровки\network-app-v2-Numnummer\Sapper\Sapper\obj\Debug\Sapper.Properties.Resources.resources
+D:\Hw\3 семстр\Семестровки\network-app-v2-Numnummer\Sapper\Sapper\obj\Debug\Sapper.csproj.GenerateResource.cache
+D:\Hw\3 семстр\Семестровки\network-app-v2-Numnummer\Sapper\Sapper\obj\Debug\Sapper.csproj.CoreCompileInputs.cache

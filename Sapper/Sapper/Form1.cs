@@ -16,7 +16,8 @@ namespace Sapper
         public Form1()
         {
             InitializeComponent();
-            MapController.Init(this);
+            StartController.CreatePlayerForm(this);
+            //MapController.Init(this);
         }
     }
 }

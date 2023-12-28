@@ -7,18 +7,18 @@ namespace GameClient
     {
         private readonly Server? _server;
         private readonly Client _client;
-        public Player(Mode mode, string name)
+        public Player(IPAddress ip, Mode mode, string name)
         {
             switch (mode)
             {
                 case Mode.Server:
-                    _server=new Server(new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 5007));
+                    _server=new Server(new IPEndPoint(ip, 5007));
                     _=_server.ListenAsync();
-                    _client=new Client(new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 5007), name);
+                    _client=new Client(new IPEndPoint(ip, 5007), name);
                     break;
                 case Mode.Client:
                     _server=null;
-                    _client=new Client(new IPEndPoint(new IPAddress(new byte[] { 127, 0, 0, 1 }), 5007), name);
+                    _client=new Client(new IPEndPoint(ip, 5007), name);
                     break;
             }
             if (_client==null)

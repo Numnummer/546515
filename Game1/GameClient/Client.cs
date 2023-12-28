@@ -50,7 +50,16 @@ namespace GameClient
         public async Task ListenAsync()
         {
             var buffer = new byte[PackLength];
-            await _socket.ReceiveAsync(buffer);
+            try
+            {
+                await _socket.ReceiveAsync(buffer);
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
+
             if (buffer[SpecialCommandByteIndex]==SpecialCommandNewPlayer)
             {
                 var nameBytes = GamePackageHelper.GetContent(buffer);

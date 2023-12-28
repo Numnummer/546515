@@ -51,13 +51,14 @@ namespace GameClient
 
                 if (IsQueryValid(buffer))
                 {
+                    _mutex.WaitOne();
                     if (buffer[CommandByteIndex]==CommandHi)
                     {
+                        var content = Encoding.UTF8.GetString(GamePackageHelper.GetContent(buffer));
+                        _clients.Add(socket, content);
                         await SendAllClients(socket);
                         await SendAllScores(socket);
-                        var content = Encoding.UTF8.GetString(GamePackageHelper.GetContent(buffer));
                         await BroadcastMessageAsync(SpecialCommandNewPlayer, content);
-                        _clients.Add(socket, content);
                         continue;
                     }
                     if (buffer[CommandByteIndex]==CommandBye)
@@ -87,6 +88,7 @@ namespace GameClient
                             contentList.Clear();
                         }
                     }
+                    _mutex.ReleaseMutex();
                 }
             }
         }
@@ -97,7 +99,6 @@ namespace GameClient
             {
                 var content = GamePackageHelper.MakeMessageWithName(CommandServer, SpecialCommandNewScore, score.Key, score.Value);
                 await socket.SendAsync(content);
-                //await Console.Out.WriteLineAsync(score.Key+" "+score.Value);
             }
         }
 
@@ -115,9 +116,7 @@ namespace GameClient
             var message = GamePackageHelper.MakeMessage(CommandServer, specialCommand, content);
             foreach (var client in _clients.Keys)
             {
-                _mutex.WaitOne();
-                await client.SendAsync(message, SocketFlags.None);
-                _mutex.ReleaseMutex();
+                await client.SendAsync(message);
             }
         }
     }

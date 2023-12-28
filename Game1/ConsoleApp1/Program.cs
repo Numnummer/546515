@@ -1,4 +1,5 @@
 ﻿using GameClient;
+using System.Net;
 using System.Text;
 using System.Threading.Channels;
 
@@ -7,13 +8,14 @@ var mode = Console.ReadLine();
 Console.WriteLine("Введите имя");
 var name = Console.ReadLine();
 Player p = null;
+var ip = IPAddress.Parse("127.0.0.1");
 if (mode == "c")
 {
-    p = new Player(Mode.Client, name);
+    p = new Player(ip, Mode.Client, name);
 }
 if (mode == "s")
 {
-    p = new Player(Mode.Server, name);
+    p = new Player(ip, Mode.Server, name);
 }
 if (p==null)
 {
